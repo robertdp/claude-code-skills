@@ -20,7 +20,7 @@ Also gather surrounding context:
 
 **Check implementation state:** Use Grep and Glob to search for code matching the key design components. Determine whether the design is pre-implementation, partially built, or fully implemented. Report the implementation state — this gates the review depth to what's actually actionable.
 
-If the design references existing systems, delegate broader codebase investigation to a subagent. Use Agent with subagent_type=Explore, passing the key design components and what context is needed. The subagent returns its findings as its final message, structured under:
+If the design references existing systems, delegate broader codebase investigation to a subagent. Use Agent with subagent_type=Explore, model=sonnet, passing the key design components and what context is needed. The subagent returns its findings as its final message, structured under:
 - **Related systems**: How referenced systems work, their interfaces and constraints
 - **Integration points**: Where the design touches existing code
 - **Conventions**: Relevant patterns and standards in the codebase

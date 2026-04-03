@@ -37,12 +37,18 @@ Parse the user input for a file path.
 </step>
 
 <step name="explore">
-Investigate the codebase to ground the plan in reality. For large or unfamiliar codebases, use Agent with subagent_type=Explore to delegate deep investigation. For smaller or familiar codebases, use tools directly:
+Investigate the codebase to ground the plan in reality. If the feature affects a focused set of files, delegate to a subagent (Agent with subagent_type=Explore, model=sonnet) to keep main context lean. If the feature is a broad change where the main agent needs the full codebase picture for decomposition, investigate directly:
 
 1. **Project structure**: Use Glob to find `package.json`, `tsconfig.json`, build configs, and directory layout. Read key config files to understand the build system, dependencies, and module boundaries.
 2. **Affected files**: Use Grep to search for types, functions, and modules mentioned in the spec. Read the files that will need changes. List them explicitly — these become the "Files to Create/Modify" in phase files.
 3. **Patterns and conventions**: Find an existing file similar to what the plan will create. To find it: Grep for a key type or function name from the spec, then read a file in the same directory or module. For example, if the spec adds a new API route, Grep for an existing route handler (`router.get`, `app.post`, etc.) and read that file. Note naming conventions, file structure, test patterns.
 4. **Test infrastructure**: Use Glob to find test directories and config (`jest.config.*`, `vitest.config.*`, `*.test.*`). Note the test runner and assertion style.
+
+If delegated to a subagent, it returns findings structured under:
+- **Project structure**: Build system, dependencies, module boundaries
+- **Affected files**: Paths and current state of files that need changes
+- **Patterns and conventions**: Naming, file structure, test patterns with examples
+- **Test infrastructure**: Test runner, assertion style, directory structure
 
 Output of this step: a concrete list of files to touch, grouped by area of concern, with notes on dependencies between them.
 </step>
@@ -58,9 +64,7 @@ Break the work into phases. Read [reference/templates.md](reference/templates.md
 **Ordering:** Phases are strictly sequential — each phase depends on all previous phases being complete. Order them so later phases build on earlier ones. When a phase builds on files created or modified by an earlier phase, reference those files explicitly in the later phase's file list or Context & Notes. The executing agent should not have to read earlier phase files to understand its own scope.
 
 **Finalize phase:**
-Add a final finalize phase when either condition is met:
-- Any file appears in the "Files to Create/Modify" list of 2+ phases (cross-phase overlap)
-- The plan has 5 or more phases (backstop)
+Always add a finalize phase as the last phase. If any file appears in the "Files to Create/Modify" list of 2+ phases, note the overlap in the finalize phase's scope.
 
 This phase:
 - Diffs the final implementation against the original spec — flags missed requirements and unintended additions
@@ -88,10 +92,14 @@ Show this table to the user immediately. If gaps exist, revise the phase breakdo
 </step>
 
 <step name="critique">
-Use Agent with subagent_type=general-purpose to adversarially review the plan. Pass the subagent:
+Use Agent with subagent_type=general-purpose to adversarially review the plan. Use **model=opus** for plans with 5+ phases, **model=sonnet** otherwise.
+
+Pass the subagent the current working directory (absolute path) and the following as inline text (these are not yet written to disk):
 - The original spec (or interview notes)
 - The proposed phase breakdown (phase names, scopes, file lists, ordering)
 - The coverage table from the previous step
+
+The subagent requires these tools: Read, Grep, Glob. It must use the provided working directory for all file operations.
 
 Frame the subagent prompt explicitly: "Assume this plan has problems. Find them. Only report issues that would cause a phase to fail, produce wrong results, or block a later phase. Do not report stylistic preferences or theoretical risks. For each issue, state it as a fact — not a suggestion."
 
@@ -101,6 +109,7 @@ The subagent must answer these pass/fail checks:
 - **Assumptions**: Does any phase assume something that isn't in an earlier phase's scope, acceptance criteria, or the existing codebase?
 - **Sizing**: Can an agent realistically implement each phase in a single session without running out of context?
 - **Feasibility**: Given what the explore step found about the codebase, is each phase's file list and scope realistic?
+- **Coverage**: Verify the coverage table is accurate — each requirement maps to the correct phase, and no gaps or scope creep items are missing.
 
 Each issue gets a severity:
 - **blocking** — phase will fail or produce wrong results. Must be resolved before generating files.

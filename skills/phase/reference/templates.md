@@ -110,7 +110,7 @@ If a phase cannot be completed:
 
 ## Finalize Phase (phase-NN-finalize.md)
 
-Auto-generated when any file appears in 2+ phases, or when the plan has 5+ phases.
+Always generated as the last phase.
 
 ```markdown
 # Phase {N}: Finalize

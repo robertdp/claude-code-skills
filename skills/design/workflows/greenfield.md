@@ -30,7 +30,7 @@ Only ask the user questions you can't answer by reading code. Intent, priorities
 <step name="research">
 **Goal:** Map the solution landscape before committing to an approach.
 
-**Delegate to subagent** to keep the main context clean. Use Agent with subagent_type=Explore, passing:
+**Delegate to subagent** to keep the main context clean. Use Agent with subagent_type=Explore, model=sonnet, passing:
 - The confirmed interview summary (goals, constraints, scope)
 - Specific investigation questions based on what the interview surfaced
 
@@ -81,7 +81,7 @@ If the user wants to explore an option deeper before deciding, do so — read mo
 <step name="validate">
 **Goal:** Stress-test the chosen design before committing to a plan.
 
-**Delegate to subagent** to get an independent critical review. Use Agent with subagent_type=general-purpose, passing:
+**Delegate to subagent** to get an independent critical review. Use Agent with subagent_type=general-purpose, model=opus, passing:
 - The chosen design (approach, architecture, key components)
 - Goals and constraints from the interview
 - Research findings from the previous step
@@ -93,6 +93,7 @@ The subagent's brief: "Assume this design is wrong. Find the strongest argument 
 3. **Complexity** — Is there a simpler way to achieve the same result? What could be cut?
 4. **Integration** — Conflicts with existing codebase patterns? Migration path? Breaking changes?
 5. **Failure modes** — What breaks under load, bad input, or partial failure?
+6. **Factual assumptions** — Do the interfaces, APIs, and library capabilities referenced in the design actually exist and work as assumed? Verify by reading code or checking documentation.
 
 The subagent requires these tools: Read, Grep, Glob, WebSearch, WebFetch.
 
@@ -101,10 +102,10 @@ The subagent returns its findings as its final message. For each concern:
 - Concrete impact if left unaddressed
 - Suggested mitigation or adjustment
 
-**If the subagent returns empty or error results, surface the failure to the user and halt — do not proceed with missing validation. This is the highest-risk failure point: proceeding without validation produces a false "no concerns" signal.**
+**If the subagent returns empty or error results, retry once with the same prompt. If the retry also fails, surface the failure to the user and halt — do not proceed with missing validation. This is the highest-risk failure point: proceeding without validation produces a false "no concerns" signal.**
 
 Apply severity thresholds:
-- **Dealbreaker**: Invalidates the core approach — return to the design step with the new constraint.
+- **Dealbreaker**: Invalidates the core approach. Present the dealbreaker to the user, then return to the design step — regenerate options that account for the new constraint.
 - **Significant**: Would cause rework of more than one plan step if left unaddressed — present to the user via AskUserQuestion before proceeding.
 - **Minor**: Foldable into the plan as a risk or implementation note.
 </step>
